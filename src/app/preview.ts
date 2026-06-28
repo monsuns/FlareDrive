@@ -9,6 +9,7 @@ export type PreviewKind =
   | "pdf"
   | "text"
   | "markdown"
+  | "json"
   | "none";
 
 const TEXT_EXTENSIONS = [
@@ -30,6 +31,7 @@ export function getPreviewKind(file: FileItem): PreviewKind {
   if (ct.startsWith("audio/")) return "audio";
   if (ct === "application/pdf") return "pdf";
   if (ext === ".md" || ext === ".markdown") return "markdown";
+  if (ext === ".json") return "json";
   if (ct.startsWith("text/")) return "text";
   if (TEXT_EXTENSIONS.includes(ext)) return "text";
   return "none";

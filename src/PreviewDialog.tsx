@@ -11,6 +11,7 @@ import {
 import { Close as CloseIcon, Download as DownloadIcon } from "@mui/icons-material";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { JSONTree } from "react-json-tree";
 
 import { encodeKey, FileItem } from "./FileGrid";
 import { getPreviewKind } from "./app/preview";
@@ -29,6 +30,39 @@ function Centered({ children }: { children: React.ReactNode }) {
     >
       {children}
     </Box>
+  );
+}
+
+// Pretty-print JSON with a collapsible tree (react-json-tree). Falls back to
+// raw <pre> if the content isn't valid JSON.
+function JsonBlock({ text }: { text: string }) {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return (
+      <pre
+        style={{
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          margin: 0,
+          fontFamily: "monospace",
+        }}
+      >
+        {text}
+      </pre>
+    );
+  }
+  // react-json-tree 0.20's bundled Props type omits shouldExpandNode/theme.
+  const Tree = JSONTree as any;
+  return (
+    <Tree
+      data={data}
+      shouldExpandNode={(_kp: (string | number)[], _d: unknown, level: number) =>
+        level < 2
+      }
+      theme={{ tree: { backgroundColor: "transparent" } }}
+    />
   );
 }
 
@@ -58,7 +92,7 @@ export default function PreviewDialog({
     const path = `/webdav/${encodeKey(file.key)}`;
     const k = getPreviewKind(file);
 
-    if (k === "text" || k === "markdown") {
+    if (k === "text" || k === "markdown" || k === "json") {
       authFetch(path)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
         .then((t) => !cancelled && setText(t))
@@ -130,6 +164,10 @@ export default function PreviewDialog({
         ) : kind === "markdown" ? (
           <Box sx={{ p: 3, overflow: "auto", height: "100%" }}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{text!}</ReactMarkdown>
+          </Box>
+        ) : kind === "json" ? (
+          <Box sx={{ p: 2, overflow: "auto", height: "100%" }}>
+            <JsonBlock text={text!} />
           </Box>
         ) : (
           <Box sx={{ p: 2, overflow: "auto", height: "100%" }}>
