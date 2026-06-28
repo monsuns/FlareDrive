@@ -1,12 +1,19 @@
 import pLimit from "p-limit";
 
 import { encodeKey, FileItem } from "../FileGrid";
+import {
+  AUTH_REQUIRED_EVENT,
+  AuthRequiredError,
+  authFetch,
+  basicAuthHeader,
+  clearCredentials,
+} from "./auth";
 import { TransferTask } from "./transferQueue";
 
 const WEBDAV_ENDPOINT = "/webdav/";
 
 export async function fetchPath(path: string) {
-  const res = await fetch(`${WEBDAV_ENDPOINT}${encodeKey(path)}`, {
+  const res = await authFetch(`${WEBDAV_ENDPOINT}${encodeKey(path)}`, {
     method: "PROPFIND",
     headers: { Depth: "1" },
   });
@@ -125,8 +132,16 @@ function xhrFetch(
       url instanceof Request ? url.url : url
     );
     const headers = new Headers(requestInit.headers);
+    const auth = basicAuthHeader();
+    if (auth) headers.set("Authorization", auth);
     headers.forEach((value, key) => xhr.setRequestHeader(key, value));
     xhr.onload = () => {
+      if (xhr.status === 401) {
+        clearCredentials();
+        window.dispatchEvent(new CustomEvent(AUTH_REQUIRED_EVENT));
+        reject(new AuthRequiredError());
+        return;
+      }
       const headers = xhr
         .getAllResponseHeaders()
         .trim()
@@ -162,7 +177,7 @@ export async function multipartUpload(
   const headers = options?.headers || {};
   headers["content-type"] = file.type;
 
-  const uploadResponse = await fetch(`/webdav/${encodeKey(key)}?uploads`, {
+  const uploadResponse = await authFetch(`/webdav/${encodeKey(key)}?uploads`, {
     headers,
     method: "POST",
   });
@@ -211,7 +226,7 @@ export async function multipartUpload(
   );
   const uploadedParts = await Promise.all(promises);
   const completeParams = new URLSearchParams({ uploadId });
-  const response = await fetch(`/webdav/${encodeKey(key)}?${completeParams}`, {
+  const response = await authFetch(`/webdav/${encodeKey(key)}?${completeParams}`, {
     method: "POST",
     body: JSON.stringify({ parts: uploadedParts }),
   });
@@ -225,7 +240,7 @@ export async function copyPaste(source: string, target: string, move = false) {
     `${WEBDAV_ENDPOINT}${encodeKey(target)}`,
     window.location.href
   );
-  await fetch(uploadUrl, {
+  await authFetch(uploadUrl, {
     method: move ? "MOVE" : "COPY",
     headers: { Destination: destinationUrl.href },
   });
@@ -241,10 +256,26 @@ export async function createFolder(cwd: string) {
     }
     const folderKey = `${cwd}${folderName}`;
     const uploadUrl = `${WEBDAV_ENDPOINT}${encodeKey(folderKey)}`;
-    await fetch(uploadUrl, { method: "MKCOL" });
+    await authFetch(uploadUrl, { method: "MKCOL" });
   } catch (error) {
     console.log(`Create folder failed`);
   }
+}
+
+/** Download a file through an authenticated fetch (browser <a download> can't carry auth headers). */
+export async function downloadFile(key: string) {
+  const res = await authFetch(`${WEBDAV_ENDPOINT}${encodeKey(key)}`);
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = key.split("/").pop() || "download";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Revoke after the click has been processed by the browser.
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 export async function processTransferTask({
@@ -269,7 +300,7 @@ export async function processTransferTask({
 
       const thumbnailUploadUrl = `/webdav/_$flaredrive$/thumbnails/${digestHex}.png`;
       try {
-        await fetch(thumbnailUploadUrl, {
+        await authFetch(thumbnailUploadUrl, {
           method: "PUT",
           body: thumbnailBlob,
         });

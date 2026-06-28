@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Grid,
@@ -7,6 +7,7 @@ import {
   ListItemText,
 } from "@mui/material";
 import MimeIcon from "./MimeIcon";
+import { fetchAuthBlobUrl } from "./app/auth";
 import { humanReadableSize } from "./app/utils";
 
 export interface FileItem {
@@ -29,17 +30,63 @@ export function isDirectory(file: FileItem) {
   return file.httpMetadata?.contentType === "application/x-directory";
 }
 
+// Thumbnails live under a Basic-auth-protected WebDAV path. The browser can't
+// attach our Authorization header to an <img src>, so fetch the bytes ourselves
+// and render via a blob URL. A 401 is surfaced globally by authFetch.
+function Thumbnail({
+  digest,
+  contentType,
+  alt,
+}: {
+  digest: string;
+  contentType: string;
+  alt: string;
+}) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    fetchAuthBlobUrl(`/webdav/_$flaredrive$/thumbnails/${digest}.png`)
+      .then((u) => {
+        if (cancelled) {
+          URL.revokeObjectURL(u);
+          return;
+        }
+        objectUrl = u;
+        setUrl(u);
+      })
+      .catch(() => {
+        /* auth failures are handled globally; otherwise simply no thumbnail */
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [digest]);
+
+  if (!url) return <MimeIcon contentType={contentType} />;
+  return (
+    <img
+      src={url}
+      alt={alt}
+      style={{ width: 36, height: 36, objectFit: "cover" }}
+    />
+  );
+}
+
 function FileGrid({
   files,
   onCwdChange,
   multiSelected,
   onMultiSelect,
+  onOpenFile,
   emptyMessage,
 }: {
   files: FileItem[];
   onCwdChange: (newCwd: string) => void;
   multiSelected: string[] | null;
   onMultiSelect: (key: string) => void;
+  onOpenFile: (key: string) => void;
   emptyMessage?: React.ReactNode;
 }) {
   return files.length === 0 ? (
@@ -55,12 +102,7 @@ function FileGrid({
                 onMultiSelect(file.key);
               } else if (isDirectory(file)) {
                 onCwdChange(file.key + "/");
-              } else
-                window.open(
-                  `/webdav/${encodeKey(file.key)}`,
-                  "_blank",
-                  "noopener,noreferrer"
-                );
+              } else onOpenFile(file.key);
             }}
             onContextMenu={(e) => {
               e.preventDefault();
@@ -70,10 +112,10 @@ function FileGrid({
           >
             <ListItemIcon>
               {file.customMetadata?.thumbnail ? (
-                <img
-                  src={`/webdav/_$flaredrive$/thumbnails/${file.customMetadata.thumbnail}.png`}
+                <Thumbnail
+                  digest={file.customMetadata.thumbnail}
+                  contentType={file.httpMetadata.contentType}
                   alt={file.key}
-                  style={{ width: 36, height: 36, objectFit: "cover" }}
                 />
               ) : (
                 <MimeIcon contentType={file.httpMetadata.contentType} />

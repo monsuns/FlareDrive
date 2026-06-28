@@ -14,7 +14,8 @@ import FileGrid, { encodeKey, FileItem, isDirectory } from "./FileGrid";
 import MultiSelectToolbar from "./MultiSelectToolbar";
 import UploadDrawer, { UploadFab } from "./UploadDrawer";
 import TextPadDrawer from "./TextPadDrawer";
-import { copyPaste, fetchPath } from "./app/transfer";
+import { copyPaste, downloadFile, fetchPath } from "./app/transfer";
+import { authFetch } from "./app/auth";
 import { useTransferQueue, useUploadEnqueue } from "./app/transferQueue";
 
 // Centered helper
@@ -197,6 +198,7 @@ function Main({
             onCwdChange={(newCwd: string) => setCwd(newCwd)}
             multiSelected={multiSelected}
             onMultiSelect={handleMultiSelect}
+            onOpenFile={(key: string) => downloadFile(key).catch(onError)}
             emptyMessage={<Centered>No files or folders</Centered>}
           />
         </DropZone>
@@ -240,10 +242,7 @@ function Main({
         onClose={() => setMultiSelected(null)}
         onDownload={() => {
           if (multiSelected?.length !== 1) return;
-          const a = document.createElement("a");
-          a.href = `/webdav/${encodeKey(multiSelected[0])}`;
-          a.download = multiSelected[0].split("/").pop()!;
-          a.click();
+          downloadFile(multiSelected[0]).catch(onError);
         }}
         onRename={async () => {
           if (multiSelected?.length !== 1) return;
@@ -259,8 +258,12 @@ function Main({
             .join("\n");
           const confirmMessage = "Delete the following file(s) permanently?";
           if (!window.confirm(`${confirmMessage}\n${filenames}`)) return;
-          for (const key of multiSelected)
-            await fetch(`/webdav/${encodeKey(key)}`, { method: "DELETE" });
+          try {
+            for (const key of multiSelected)
+              await authFetch(`/webdav/${encodeKey(key)}`, { method: "DELETE" });
+          } catch (error) {
+            onError(error as Error);
+          }
           fetchFiles();
         }}
         onShare={() => {
