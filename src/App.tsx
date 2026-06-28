@@ -12,6 +12,7 @@ import Header from "./Header";
 import LoginDialog from "./LoginDialog";
 import Main from "./Main";
 import ProgressDialog from "./ProgressDialog";
+import UploadProgressFloat from "./UploadProgressFloat";
 import {
   AUTH_REQUIRED_EVENT,
   AuthRequiredError,
@@ -84,6 +85,7 @@ function App() {
             open={showProgressDialog}
             onClose={() => setShowProgressDialog(false)}
           />
+          <UploadProgressFloat />
         </TransferQueueProvider>
       )}
     </ThemeProvider>

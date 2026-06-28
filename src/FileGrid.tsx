@@ -6,6 +6,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Typography,
 } from "@mui/material";
 import { Download as DownloadIcon, Visibility as VisibilityIcon } from "@mui/icons-material";
 import MimeIcon from "./MimeIcon";
@@ -171,7 +172,8 @@ function FileGrid({
               }}
               secondary={
                 <React.Fragment>
-                  <Box
+                  <Typography
+                    component="span"
                     sx={{
                       display: "inline-block",
                       minWidth: "160px",
@@ -179,7 +181,7 @@ function FileGrid({
                     }}
                   >
                     {new Date(file.uploaded).toLocaleString()}
-                  </Box>
+                  </Typography>
                   {!isDirectory(file) && humanReadableSize(file.size)}
                 </React.Fragment>
               }

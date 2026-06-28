@@ -56,15 +56,15 @@ export function TransferQueueProvider({
 
   function currentTaskUpdater(props: Partial<TransferTask>) {
     const currentTask = taskProcessing.current!;
-    return (tasks: TransferTask[]) => {
-      const newTask: TransferTask = { ...currentTask, ...props };
-      const newTasks = tasks.map((t) =>
-        t === taskProcessing.current ? newTask : t
-      );
-      if (currentTask === taskProcessing.current)
-        taskProcessing.current = newTask;
-      return newTasks;
-    };
+    const newTask: TransferTask = { ...currentTask, ...props };
+    // Sync the ref immediately so the next updater captures the latest task
+    // object. The mapper uses the captured `currentTask` (not the ref) so it
+    // stays correct even when React runs it asynchronously late — the old
+    // code read `taskProcessing.current` inside the mapper, which had already
+    // been nulled by `then`, so status never updated and the task looped.
+    taskProcessing.current = newTask;
+    return (tasks: TransferTask[]) =>
+      tasks.map((t) => (t === currentTask ? newTask : t));
   }
 
   useEffect(() => {
