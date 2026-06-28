@@ -2,10 +2,12 @@ import React, { useEffect, useState } from "react";
 import {
   Box,
   Grid,
+  IconButton,
   ListItemButton,
   ListItemIcon,
   ListItemText,
 } from "@mui/material";
+import { Download as DownloadIcon, Visibility as VisibilityIcon } from "@mui/icons-material";
 import MimeIcon from "./MimeIcon";
 import { fetchAuthBlobUrl } from "./app/auth";
 import { humanReadableSize } from "./app/utils";
@@ -79,14 +81,16 @@ function FileGrid({
   onCwdChange,
   multiSelected,
   onMultiSelect,
-  onOpenFile,
+  onPreview,
+  onDownload,
   emptyMessage,
 }: {
   files: FileItem[];
   onCwdChange: (newCwd: string) => void;
   multiSelected: string[] | null;
   onMultiSelect: (key: string) => void;
-  onOpenFile: (key: string) => void;
+  onPreview: (key: string) => void;
+  onDownload: (key: string) => void;
   emptyMessage?: React.ReactNode;
 }) {
   return files.length === 0 ? (
@@ -102,14 +106,51 @@ function FileGrid({
                 onMultiSelect(file.key);
               } else if (isDirectory(file)) {
                 onCwdChange(file.key + "/");
-              } else onOpenFile(file.key);
+              } else onPreview(file.key);
             }}
             onContextMenu={(e) => {
               e.preventDefault();
               onMultiSelect(file.key);
             }}
-            sx={{ userSelect: "none" }}
+            sx={{
+              userSelect: "none",
+              position: "relative",
+              "&:hover .preview-actions": { opacity: 1 },
+            }}
           >
+            <Box
+              className="preview-actions"
+              sx={{
+                position: "absolute",
+                right: 4,
+                top: 4,
+                opacity: 0,
+                transition: "opacity .15s",
+                display: "flex",
+                zIndex: 2,
+              }}
+            >
+              <IconButton
+                size="small"
+                title="Preview"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPreview(file.key);
+                }}
+              >
+                <VisibilityIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                title="Download"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDownload(file.key);
+                }}
+              >
+                <DownloadIcon fontSize="small" />
+              </IconButton>
+            </Box>
             <ListItemIcon>
               {file.customMetadata?.thumbnail ? (
                 <Thumbnail

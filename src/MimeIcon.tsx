@@ -1,11 +1,13 @@
-import AudioFileIcon from "@mui/icons-material/AudioFile";
-import CodeIcon from "@mui/icons-material/Code";
-import FolderIcon from "@mui/icons-material/Folder";
-import FolderZipOutlinedIcon from "@mui/icons-material/FolderZipOutlined";
-import ImageIcon from "@mui/icons-material/Image";
-import InsertDriveFileOutlinedIcon from "@mui/icons-material/InsertDriveFileOutlined";
-import PdfIcon from "@mui/icons-material/PictureAsPdf";
-import VideoFileIcon from "@mui/icons-material/VideoFile";
+import {
+  AudioFile as AudioFileIcon,
+  Code as CodeIcon,
+  Folder as FolderIcon,
+  FolderZipOutlined as FolderZipOutlinedIcon,
+  Image as ImageIcon,
+  InsertDriveFileOutlined as InsertDriveFileOutlinedIcon,
+  PictureAsPdf as PdfIcon,
+  VideoFile as VideoFileIcon,
+} from "@mui/icons-material";
 
 function MimeIcon({ contentType }: { contentType: string }) {
   const fallbackIcon = <InsertDriveFileOutlinedIcon fontSize="large" />;

@@ -14,8 +14,10 @@ import FileGrid, { encodeKey, FileItem, isDirectory } from "./FileGrid";
 import MultiSelectToolbar from "./MultiSelectToolbar";
 import UploadDrawer, { UploadFab } from "./UploadDrawer";
 import TextPadDrawer from "./TextPadDrawer";
+import PreviewDialog from "./PreviewDialog";
 import { copyPaste, downloadFile, fetchPath } from "./app/transfer";
 import { authFetch } from "./app/auth";
+import { getPreviewKind } from "./app/preview";
 import { useTransferQueue, useUploadEnqueue } from "./app/transferQueue";
 
 // Centered helper
@@ -124,9 +126,31 @@ function Main({
   const [showUploadDrawer, setShowUploadDrawer] = useState(false);
   const [showTextPadDrawer, setShowTextPadDrawer] = useState(false);
   const [lastUploadKey, setLastUploadKey] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
 
   const transferQueue = useTransferQueue();
   const uploadEnqueue = useUploadEnqueue();
+
+  const handlePreview = useCallback(
+    (key: string) => {
+      const f = files.find((x) => x.key === key);
+      if (!f) return;
+      // Unsupported types (office, archives, …) skip the dialog and download.
+      if (getPreviewKind(f) === "none") {
+        downloadFile(key).catch(onError);
+      } else {
+        setPreviewFile(f);
+      }
+    },
+    [files, onError]
+  );
+
+  const handleDownload = useCallback(
+    (key: string) => {
+      downloadFile(key).catch(onError);
+    },
+    [onError]
+  );
 
   const fetchFiles = useCallback(() => {
     fetchPath(cwd)
@@ -198,7 +222,8 @@ function Main({
             onCwdChange={(newCwd: string) => setCwd(newCwd)}
             multiSelected={multiSelected}
             onMultiSelect={handleMultiSelect}
-            onOpenFile={(key: string) => downloadFile(key).catch(onError)}
+            onPreview={handlePreview}
+            onDownload={handleDownload}
             emptyMessage={<Centered>No files or folders</Centered>}
           />
         </DropZone>
@@ -274,6 +299,11 @@ function Main({
           );
           navigator.share({ url: url.toString() });
         }}
+      />
+
+      <PreviewDialog
+        file={previewFile}
+        onClose={() => setPreviewFile(null)}
       />
     </>
   );
