@@ -10,7 +10,8 @@ import {
 } from "@mui/material";
 import { Home as HomeIcon, NoteAdd as NoteAddIcon } from "@mui/icons-material";
 
-import FileGrid, { encodeKey, FileItem, isDirectory } from "./FileGrid";
+import FileGrid, { encodeKey, FileItem, isDirectory, ViewMode } from "./FileGrid";
+import type { SortMode } from "./Header";
 import MultiSelectToolbar from "./MultiSelectToolbar";
 import UploadDrawer, { UploadFab } from "./UploadDrawer";
 import TextPadDrawer from "./TextPadDrawer";
@@ -115,9 +116,13 @@ function DropZone({
 function Main({
   search,
   onError,
+  viewMode,
+  sortMode,
 }: {
   search: string;
   onError: (error: Error) => void;
+  viewMode: ViewMode;
+  sortMode: SortMode;
 }) {
   const [cwd, setCwd] = useState("");
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -179,16 +184,26 @@ function Main({
     }
   }, [cwd, fetchFiles, lastUploadKey, transferQueue]);
 
-  const filteredFiles = useMemo(
-    () =>
-      (search
-        ? files.filter((file) =>
-            file.key.toLowerCase().includes(search.toLowerCase())
-          )
-        : files
-      ).sort((a, b) => (isDirectory(a) ? -1 : isDirectory(b) ? 1 : 0)),
-    [files, search]
-  );
+  const filteredFiles = useMemo(() => {
+    const list = search
+      ? files.filter((file) =>
+          file.key.toLowerCase().includes(search.toLowerCase())
+        )
+      : files;
+    const sortFns: Record<SortMode, (a: FileItem, b: FileItem) => number> = {
+      "name-asc": (a, b) => a.key.localeCompare(b.key),
+      "name-desc": (a, b) => b.key.localeCompare(a.key),
+      "size-desc": (a, b) => b.size - a.size,
+      "date-desc": (a, b) =>
+        new Date(b.uploaded).getTime() - new Date(a.uploaded).getTime(),
+    };
+    // Directories always sort to the top regardless of the chosen order.
+    return [...list].sort((a, b) => {
+      if (isDirectory(a) && !isDirectory(b)) return -1;
+      if (!isDirectory(a) && isDirectory(b)) return 1;
+      return sortFns[sortMode](a, b);
+    });
+  }, [files, search, sortMode]);
 
   const handleMultiSelect = useCallback((key: string) => {
     setMultiSelected((prev) => {
@@ -219,6 +234,7 @@ function Main({
         >
           <FileGrid
             files={filteredFiles}
+            viewMode={viewMode}
             onCwdChange={(newCwd: string) => setCwd(newCwd)}
             multiSelected={multiSelected}
             onMultiSelect={handleMultiSelect}
